@@ -1,0 +1,5 @@
+运行新代码:
+1. 在examples/ 添加对应的测试文件
+2. 在最外层CMakeLists加入新的测试文件的编译指令，代码参考: + leveldb_test("examples/main.cc")
+3. 进入build文件，重新编译，指令:cmake -DCMAKE_BUILD_TYPE=Release .. && cmake --build .
+4. 

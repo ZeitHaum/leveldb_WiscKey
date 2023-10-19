@@ -392,6 +392,7 @@ if(LEVELDB_BUILD_TESTS)
   endfunction(leveldb_test)
 
   leveldb_test("db/c_test.c")
+  leveldb_test("examples/main.cc")
 
   if(NOT BUILD_SHARED_LIBS)
     # TODO(costan): This test also uses
