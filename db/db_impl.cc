@@ -441,7 +441,7 @@ Status DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
       mem = new MemTable(internal_comparator_);
       mem->Ref();
     }
-    status = WriteBatchInternal::InsertInto(&batch, mem);
+    status = WriteBatchInternal::InsertInto(this->options_, &batch, mem);
     MaybeIgnoreError(&status);
     if (!status.ok()) {
       break;
@@ -1236,7 +1236,7 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* updates) {
         }
       }
       if (status.ok()) {
-        status = WriteBatchInternal::InsertInto(write_batch, mem_);
+        status = WriteBatchInternal::InsertInto(this->options_, write_batch, mem_);
       }
       mutex_.Lock();
       if (sync_error) {

@@ -30,6 +30,16 @@ enum CompressionType {
   kZstdCompression = 0x2,
 };
 
+// DB KVSeqType: 
+// default: No KVSeq
+// kVSeqBeforeMem: 在写入MemTable前进行KV分离
+// kVSeqBeforeSSD: 在写入SSD前进行KV分离
+enum KVSepType{
+  noKVSep = 0x0,
+  kVSepBeforeMem = 0x1,
+  kVSepBeforeSSD = 0x2,
+};
+
 // Options to control the behavior of a database (passed to DB::Open)
 struct LEVELDB_EXPORT Options {
   // Create an Options object with default values for all fields.
@@ -145,6 +155,12 @@ struct LEVELDB_EXPORT Options {
   // Many applications will benefit from passing the result of
   // NewBloomFilterPolicy() here.
   const FilterPolicy* filter_policy = nullptr;
+
+  //The threshold of Value should be separated. Default value is set to 4KB, According to Titan.
+  int kvsepThreshold = 4096;
+
+  //Choose the DataBase Model
+  KVSepType kvSepType = noKVSep;
 };
 
 // Options that control read operations
@@ -162,9 +178,6 @@ struct LEVELDB_EXPORT ReadOptions {
   // not have been released).  If "snapshot" is null, use an implicit
   // snapshot of the state at the beginning of this read operation.
   const Snapshot* snapshot = nullptr;
-
-  // The threshold of Value should be separated. Default value is set to 4KB, According to Titan.
-  const int kvsep_threshold = 4096.
 };
 
 // Options that control write operations
@@ -186,6 +199,8 @@ struct LEVELDB_EXPORT WriteOptions {
   // with sync==true has similar crash semantics to a "write()"
   // system call followed by "fsync()".
   bool sync = false;
+
+
 };
 
 }  // namespace leveldb

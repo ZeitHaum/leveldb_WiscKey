@@ -129,6 +129,22 @@ class MemTableInserter : public WriteBatch::Handler {
     sequence_++;
   }
 };
+//Use For KVSeqMem
+class MemTableInserterKVSeq : public WriteBatch::Handler{
+  public:
+  SequenceNumber sequence_;
+  MemTable* mem_;
+
+  void Put(const Slice& key, const Slice& value) override {
+    assert(0 && "TODO");
+    mem_->Add(sequence_, kTypeValue, key, value);
+    sequence_++;
+  }
+  void Delete(const Slice& key) override {
+    mem_->Add(sequence_, kTypeDeletion, key, Slice());
+    sequence_++;
+  }
+};
 }  // namespace
 
 Status WriteBatchInternal::InsertInto(const WriteBatch* b, MemTable* memtable) {
@@ -136,6 +152,21 @@ Status WriteBatchInternal::InsertInto(const WriteBatch* b, MemTable* memtable) {
   inserter.sequence_ = WriteBatchInternal::Sequence(b);
   inserter.mem_ = memtable;
   return b->Iterate(&inserter);
+}
+
+Status WriteBatchInternal::InsertInto(const Options& options, const WriteBatch* b, MemTable* memtable) {
+  //多态
+  if(options.kvSepType == noKVSep || options.kvSepType == kVSepBeforeSSD){
+    MemTableInserter inserter;
+    inserter.sequence_ = WriteBatchInternal::Sequence(b);
+    inserter.mem_ = memtable;
+    return b->Iterate(&inserter);
+  }
+  else if(options.kvSepType == kVSepBeforeMem){
+    //TODO
+    assert(0);
+  }
+  return Status::Corruption("Invalid kvSeqType in options.");
 }
 
 void WriteBatchInternal::SetContents(WriteBatch* b, const Slice& contents) {
