@@ -162,6 +162,9 @@ struct LEVELDB_EXPORT ReadOptions {
   // not have been released).  If "snapshot" is null, use an implicit
   // snapshot of the state at the beginning of this read operation.
   const Snapshot* snapshot = nullptr;
+
+  // The threshold of Value should be separated. Default value is set to 4KB, According to Titan.
+  const int kvsep_threshold = 4096.
 };
 
 // Options that control write operations

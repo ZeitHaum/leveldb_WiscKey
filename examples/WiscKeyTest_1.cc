@@ -169,7 +169,7 @@ int main(int argc, char ** argv)
   	clock_t dt = clock() - t0;
   	cout << "time elapsed: " << dt * 1.0e-6 << " seconds" << endl;
         close_wisckey(wk);
-        // destroy_leveldb("wisckey_test_dir");       
-        // remove("logfile");
+        destroy_leveldb("wisckey_test_dir");       
+        remove("logfile");
         exit(0);
 }

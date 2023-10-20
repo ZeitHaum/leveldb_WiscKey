@@ -45,6 +45,7 @@ Status WriteBatch::Iterate(Handler* handler) const {
     return Status::Corruption("malformed WriteBatch (too small)");
   }
 
+  //rep_ Header 12字节, 包含8字节sequence和4字节count.
   input.remove_prefix(kHeader);
   Slice key, value;
   int found = 0;
@@ -72,6 +73,7 @@ Status WriteBatch::Iterate(Handler* handler) const {
         return Status::Corruption("unknown WriteBatch tag");
     }
   }
+  //合法性判断
   if (found != WriteBatchInternal::Count(this)) {
     return Status::Corruption("WriteBatch has wrong count");
   } else {
