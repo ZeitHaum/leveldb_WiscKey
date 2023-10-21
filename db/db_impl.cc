@@ -35,6 +35,10 @@
 #include "util/logging.h"
 #include "util/mutexlock.h"
 
+// #define DEBUG
+#ifdef DEBUG
+#include <iostream>
+#endif
 namespace leveldb {
 
 const int kNumNonTableCacheFiles = 10;
@@ -142,6 +146,10 @@ DBImpl::DBImpl(const Options& raw_options, const std::string& dbname)
       logfile_(nullptr),
       logfile_number_(0),
       log_(nullptr),
+      vlog_(nullptr),
+      vlog_file_(nullptr),
+      vlogfile_number_(0),
+      vlogfile_offset_(0),
       seed_(0),
       tmp_batch_(new WriteBatch),
       background_compaction_scheduled_(false),
@@ -441,7 +449,7 @@ Status DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
       mem = new MemTable(internal_comparator_);
       mem->Ref();
     }
-    status = WriteBatchInternal::InsertInto(this->options_, &batch, mem);
+    status = WriteBatchInternal::InsertInto(&batch, mem);
     MaybeIgnoreError(&status);
     if (!status.ok()) {
       break;
@@ -1156,6 +1164,18 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
   mem->Unref();
   if (imm != nullptr) imm->Unref();
   current->Unref();
+  //Decode vptr if Need Kvsep
+  if(options_.kvSepType == kVSepBeforeMem){
+    Slice encoded_vptr = Slice(*value);
+    uint64_t vlogfile_number;
+    uint64_t vlogfile_offset;
+    bool decoded_status = true;
+    decoded_status &= GetVarint64(&encoded_vptr, &vlogfile_number);
+    decoded_status &= GetVarint64(&encoded_vptr, &vlogfile_offset);
+    if(!decoded_status) s = Status::Corruption("Can not Decode vptr from Read Bytes.");
+    //TODO: Read From VlogFile.
+    *value = std::to_string(vlogfile_number) + std::to_string(vlogfile_offset);
+  }
   return s;
 }
 
@@ -1190,7 +1210,29 @@ void DBImpl::ReleaseSnapshot(const Snapshot* snapshot) {
 
 // Convenience methods
 Status DBImpl::Put(const WriteOptions& o, const Slice& key, const Slice& val) {
-  return DB::Put(o, key, val);
+  // Convert value to vptr if need.
+  if(this->options_.kvSepType == noKVSep || this->options_.kvSepType == kVSepBeforeSSD){
+    return DB::Put(o, key, val);
+  }
+  else if(this->options_.kvSepType == kVSepBeforeMem){
+    //写vlog && 将val替换为vptr.
+    //TODO: Write vlogs.
+    char buf[20];
+    char* vfileno_end = EncodeVarint64(buf, vlogfile_number_);
+    char* vfileoff_end = EncodeVarint64(vfileno_end, vlogfile_offset_);
+    // TODO： Change this to be determined by actually byte write in vlogs.
+    vlogfile_offset_ += val.size();
+    #ifdef DEBUG
+    std::cout<<"Insert value size:"<<val.size()<<"Current vlogfile_offset_:"<<vlogfile_offset_<<'\n';
+    for(int i = 0; i< vfileoff_end - buf; i++){
+      printf("%x, ", buf[i]);
+    }
+    printf("\n");
+    #endif
+    Slice vptr = Slice(buf, vfileoff_end - buf);
+    return DB::Put(o, key, vptr);
+  }
+  return Status::Corruption("Invalid kvSepType.");
 }
 
 Status DBImpl::Delete(const WriteOptions& options, const Slice& key) {
@@ -1236,7 +1278,7 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* updates) {
         }
       }
       if (status.ok()) {
-        status = WriteBatchInternal::InsertInto(this->options_, write_batch, mem_);
+        status = WriteBatchInternal::InsertInto(write_batch, mem_);
       }
       mutex_.Lock();
       if (sync_error) {
@@ -1571,3 +1613,7 @@ Status DestroyDB(const std::string& dbname, const Options& options) {
 }
 
 }  // namespace leveldb
+
+#ifdef DEBUG
+#undef DEBUG
+#endif

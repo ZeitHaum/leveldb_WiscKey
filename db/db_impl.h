@@ -12,6 +12,7 @@
 
 #include "db/dbformat.h"
 #include "db/log_writer.h"
+#include "db/vlog_writer.h"
 #include "db/snapshot.h"
 #include "leveldb/db.h"
 #include "leveldb/env.h"
@@ -180,6 +181,12 @@ class DBImpl : public DB {
   WritableFile* logfile_;
   uint64_t logfile_number_ GUARDED_BY(mutex_);
   log::Writer* log_;
+  //Add Defination of vlog files.
+  //TODO: Consider the Concurrency.
+  uint64_t vlogfile_number_;
+  uint64_t vlogfile_offset_; // 当前vlog_file的偏移
+  WritableFile* vlog_file_; //写vlog_file的文件类
+  vlog::VWriter* vlog_;
   uint32_t seed_ GUARDED_BY(mutex_);  // For sampling.
 
   // Queue of writers.

@@ -154,21 +154,6 @@ Status WriteBatchInternal::InsertInto(const WriteBatch* b, MemTable* memtable) {
   return b->Iterate(&inserter);
 }
 
-Status WriteBatchInternal::InsertInto(const Options& options, const WriteBatch* b, MemTable* memtable) {
-  //多态
-  if(options.kvSepType == noKVSep || options.kvSepType == kVSepBeforeSSD){
-    MemTableInserter inserter;
-    inserter.sequence_ = WriteBatchInternal::Sequence(b);
-    inserter.mem_ = memtable;
-    return b->Iterate(&inserter);
-  }
-  else if(options.kvSepType == kVSepBeforeMem){
-    //TODO
-    assert(0);
-  }
-  return Status::Corruption("Invalid kvSeqType in options.");
-}
-
 void WriteBatchInternal::SetContents(WriteBatch* b, const Slice& contents) {
   assert(contents.size() >= kHeader);
   b->rep_.assign(contents.data(), contents.size());

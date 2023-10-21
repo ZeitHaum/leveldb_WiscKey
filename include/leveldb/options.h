@@ -161,6 +161,9 @@ struct LEVELDB_EXPORT Options {
 
   //Choose the DataBase Model
   KVSepType kvSepType = noKVSep;
+
+  //threshold of each vlog files 
+  int vlog_file_size = 64 * 1024 * 1024;
 };
 
 // Options that control read operations

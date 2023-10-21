@@ -138,6 +138,8 @@ target_sources(leveldb
     "db/log_reader.h"
     "db/log_writer.cc"
     "db/log_writer.h"
+    "db/vlog_writer.cc"
+    "db/vlog_writer.h"
     "db/memtable.cc"
     "db/memtable.h"
     "db/repair.cc"
@@ -394,7 +396,7 @@ if(LEVELDB_BUILD_TESTS)
   leveldb_test("db/c_test.c")
   leveldb_test("examples/main.cc")
   leveldb_test("examples/test_1.cc")
-  leveldb_test("examples/test_2.cc")
+  leveldb_test("examples/ValueConvertTest.cc")
   leveldb_test("examples/WiscKeyTest_1.cc")
 
   if(NOT BUILD_SHARED_LIBS)

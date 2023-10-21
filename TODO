@@ -16,8 +16,8 @@ the conditions for triggering compactions fire in more situations?
 ##Used For ZeitHaum In Octorber, 2023.
 
 Implementation of WiscKey:
-
-Step 1: For any Write, change Value to expected content, and supports for read.
+ 
+Step 1: For any Write, change Value to expected content, and supports for read. [Done.]
 
 Step 2: Think the organization of value file.
 
