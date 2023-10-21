@@ -15,7 +15,7 @@ namespace vlog{
     public:
         explicit VWriter(WritableFile* vlogfile);
         ~VWriter();
-        Status AddRecord(const Slice& slice);
+        Status AddRecord(const Slice& slice, int& write_size);
         VWriter(const VWriter&) = delete;
         VWriter& operator=(const VWriter&) = delete;
     private:

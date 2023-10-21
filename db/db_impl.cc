@@ -34,6 +34,8 @@
 #include "util/coding.h"
 #include "util/logging.h"
 #include "util/mutexlock.h"
+#include <sys/stat.h>
+
 
 // #define DEBUG
 #ifdef DEBUG
@@ -147,7 +149,7 @@ DBImpl::DBImpl(const Options& raw_options, const std::string& dbname)
       logfile_number_(0),
       log_(nullptr),
       vlog_(nullptr),
-      vlog_file_(nullptr),
+      vlogfile_(nullptr),
       vlogfile_number_(0),
       vlogfile_offset_(0),
       seed_(0),
@@ -359,6 +361,7 @@ Status DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
       expected.erase(number);
       if (type == kLogFile && ((number >= min_log) || (number == prev_log)))
         logs.push_back(number);
+      else if(type == kVlogFile ) vlogfile_number_ = std::max(vlogfile_number_, number);
     }
   }
   if (!expected.empty()) {
@@ -387,6 +390,8 @@ Status DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
     versions_->SetLastSequence(max_sequence);
   }
 
+  //Assign the offset
+  vlogfile_offset_ == getFileSize(VlogFileName(dbname_, vlogfile_number_).c_str());
   return Status::OK();
 }
 
@@ -1215,13 +1220,19 @@ Status DBImpl::Put(const WriteOptions& o, const Slice& key, const Slice& val) {
     return DB::Put(o, key, val);
   }
   else if(this->options_.kvSepType == kVSepBeforeMem){
-    //写vlog && 将val替换为vptr.
-    //TODO: Write vlogs.
+    //写VLog
+    if(vlogfile_offset_ >= options_.vlog_file_size){
+      //TODO: Need Change File
+    }
+    int write_size = 0;
+    string tmp_vrec;
+    PutLengthPrefixedSlice(&tmp_vrec, key);
+    PutLengthPrefixedSlice(&tmp_vrec, value);
+    vlog_-> AddRecord(Slice(tmp_vrec), write_size);
+    //将val替换为vptr.
     char buf[20];
     char* vfileno_end = EncodeVarint64(buf, vlogfile_number_);
     char* vfileoff_end = EncodeVarint64(vfileno_end, vlogfile_offset_);
-    // TODO： Change this to be determined by actually byte write in vlogs.
-    vlogfile_offset_ += val.size();
     #ifdef DEBUG
     std::cout<<"Insert value size:"<<val.size()<<"Current vlogfile_offset_:"<<vlogfile_offset_<<'\n';
     for(int i = 0; i< vfileoff_end - buf; i++){
@@ -1229,6 +1240,7 @@ Status DBImpl::Put(const WriteOptions& o, const Slice& key, const Slice& val) {
     }
     printf("\n");
     #endif
+    vlogfile_offset_ += write_size;
     Slice vptr = Slice(buf, vfileoff_end - buf);
     return DB::Put(o, key, vptr);
   }
@@ -1520,6 +1532,16 @@ void DBImpl::GetApproximateSizes(const Range* range, int n, uint64_t* sizes) {
   v->Unref();
 }
 
+ size_t DBImpl::getFileSize(const char* filename){
+	if (filename == NULL) {
+		return 0;
+	}
+	struct stat statbuf;
+	stat(filename, &statbuf);
+	size_t filesize = statbuf.st_size;
+	return filesize;
+ }
+
 // Default implementations of convenience methods that subclasses of DB
 // can call if they wish
 Status DB::Put(const WriteOptions& opt, const Slice& key, const Slice& value) {
@@ -1548,14 +1570,18 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
   if (s.ok() && impl->mem_ == nullptr) {
     // Create new log and a corresponding memtable.
     uint64_t new_log_number = impl->versions_->NewFileNumber();
-    WritableFile* lfile;
+    WritableFile* lfile, *vfile;
     s = options.env->NewWritableFile(LogFileName(dbname, new_log_number),
                                      &lfile);
+    if(s.ok()) s = options.env -> NewWritableFile(VlogFileName(dbname, impl->vlogfile_number_), 
+                                     &vfile);
     if (s.ok()) {
       edit.SetLogNumber(new_log_number);
       impl->logfile_ = lfile;
+      impl->vlogfile_ = vfile;
       impl->logfile_number_ = new_log_number;
       impl->log_ = new log::Writer(lfile);
+      impl->vlog_ = new vlog::VWriter(vfile);
       impl->mem_ = new MemTable(impl->internal_comparator_);
       impl->mem_->Ref();
     }

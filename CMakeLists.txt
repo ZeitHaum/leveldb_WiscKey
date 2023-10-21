@@ -140,6 +140,8 @@ target_sources(leveldb
     "db/log_writer.h"
     "db/vlog_writer.cc"
     "db/vlog_writer.h"
+    "db/vlog_reader.h"
+    "db/vlog_reader.cc"
     "db/memtable.cc"
     "db/memtable.h"
     "db/repair.cc"

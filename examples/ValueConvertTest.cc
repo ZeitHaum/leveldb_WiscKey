@@ -14,7 +14,7 @@ int main(){
     for(int i = 1; i<= 4096; i++){
         fill_str.push_back('%');
     }
-    for(int i = 1E3; i>= 1; i--){
+    for(int i = 10; i>= 1; i--){
         status = db -> Put(leveldb::WriteOptions(), "key" + std::to_string(i), "val" + std::to_string(i) + fill_str);
     }
     if(status.ok()) {

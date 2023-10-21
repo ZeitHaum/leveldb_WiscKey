@@ -30,6 +30,11 @@ std::string LogFileName(const std::string& dbname, uint64_t number) {
   return MakeFileName(dbname, number, "log");
 }
 
+std::string VlogFileName(const std::string& dbname, uint64_t number){
+  assert(number >= 0);
+  return MakeFileName(dbname, number, "vlog");
+}
+
 std::string TableFileName(const std::string& dbname, uint64_t number) {
   assert(number > 0);
   return MakeFileName(dbname, number, "ldb");
@@ -74,7 +79,7 @@ std::string OldInfoLogFileName(const std::string& dbname) {
 //    dbname/LOG
 //    dbname/LOG.old
 //    dbname/MANIFEST-[0-9]+
-//    dbname/[0-9]+.(log|sst|ldb)
+//    dbname/[0-9]+.(log|sst|ldb|vlog)
 bool ParseFileName(const std::string& filename, uint64_t* number,
                    FileType* type) {
   Slice rest(filename);
@@ -112,7 +117,10 @@ bool ParseFileName(const std::string& filename, uint64_t* number,
       *type = kTableFile;
     } else if (suffix == Slice(".dbtmp")) {
       *type = kTempFile;
-    } else {
+    } else if(suffix == Slice(".vlog")){
+      *type = kVlogFile;
+    }
+      else {
       return false;
     }
     *number = num;

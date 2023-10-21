@@ -185,7 +185,7 @@ class DBImpl : public DB {
   //TODO: Consider the Concurrency.
   uint64_t vlogfile_number_;
   uint64_t vlogfile_offset_; // 当前vlog_file的偏移
-  WritableFile* vlog_file_; //写vlog_file的文件类
+  WritableFile* vlogfile_; //写vlog_file的文件类
   vlog::VWriter* vlog_;
   uint32_t seed_ GUARDED_BY(mutex_);  // For sampling.
 
@@ -210,6 +210,9 @@ class DBImpl : public DB {
   Status bg_error_ GUARDED_BY(mutex_);
 
   CompactionStats stats_[config::kNumLevels] GUARDED_BY(mutex_);
+
+  //Get the filesize of a file
+  size_t getFileSize(const char* filename);
 };
 
 // Sanitize db options.  The caller should delete result.info_log if
