@@ -6,29 +6,24 @@
 #include "util/coding.h"
 namespace leveldb{
 namespace vlog{
-    VReader::VReader(SequentialFile* file)
+    VReader::VReader(RandomAccessFile* file)
         :file_(file){}
     Status VReader::ReadRecord(uint64_t vfile_offset, std::string* record){
         Status s;
-        s = file_ -> SkipFromHead(vfile_offset);
+        Slice size_slice;
+        char size_buf[11];
+        uint64_t rec_size = 0;
+        s = file -> Read(vfile_offset, 10, &size_slice, size_buf); // 先把Record 长度读出来, 最长10字节.
         if(s.ok()){
-            Slice size_slice;
-            char size_buf[11];
-            uint64_t rec_size = 0;
-            s = file -> Read(10, &size_slice, size_buf); // 先把Record 长度读出来, 最长10字节.
-            if(s.ok()){
-                if(GetVarint64(&size_slice, &rec_size) == false){
-                    return Status::Corruption("Failed to decode vlog record size.");
-                }
-                std::string rec;
-                rec.resize(rec_size);
-                Slice rec_slice;
-                s = file_ -> SkipFromHead(size_slice.data() - size_buf + vfile_offset);
-                if(!s.ok()) return s;
-                s = file-> Read(rec_size, rec_slice, rec.c_str());
-                if(!s.ok()) return s;
-                record = &rec;
+            if(GetVarint64(&size_slice, &rec_size) == false){
+                return Status::Corruption("Failed to decode vlog record size.");
             }
+            std::string rec;
+            rec.resize(rec_size);
+            Slice rec_slice;
+            s = file-> Read(vfile_offset + size_slice.data() - size_buf,  rec_size, rec_slice, rec.c_str());
+            if(!s.ok()) return s;
+            record = &rec;
         }
         return s;
     }

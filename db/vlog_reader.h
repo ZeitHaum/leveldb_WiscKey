@@ -10,17 +10,18 @@
 
 namespace leveldb {
 
-class SequentialFile;
+class RandomAccessFile;
 
 namespace vlog {
     class VReader {
     //TODO: Consider the Cocurrency.
     public:
-        explicit VReader(SequentialFile* file);
-        Status ReadRecord(uint64_t vfile_offset, Slice& record);
-        Status ReadValue(uint64_t vfile_offset, Slice& val);
+        explicit VReader(RandomAccessFile* file);
+        ~VReader() = default;
+        Status ReadRecord(uint64_t vfile_offset, std::string* record);
+        Status ReadKV(uint64_t vfile_offset, std::string* key ,std::string* val);
     private: 
-        SequentialFile* file_;
+        RandomAccessFile* file_;
     };
 } // namespace vlog
 }

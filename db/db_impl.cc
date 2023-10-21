@@ -149,6 +149,7 @@ DBImpl::DBImpl(const Options& raw_options, const std::string& dbname)
       logfile_number_(0),
       log_(nullptr),
       vlog_(nullptr),
+      vmanager_(nullptr),
       vlogfile_(nullptr),
       vlogfile_number_(0),
       vlogfile_offset_(0),
@@ -178,6 +179,9 @@ DBImpl::~DBImpl() {
   delete tmp_batch_;
   delete log_;
   delete logfile_;
+  delete vlog_;
+  delete vlogfile_;
+  delete vmanager_;
   delete table_cache_;
 
   if (owns_info_log_) {
@@ -361,7 +365,14 @@ Status DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
       expected.erase(number);
       if (type == kLogFile && ((number >= min_log) || (number == prev_log)))
         logs.push_back(number);
-      else if(type == kVlogFile ) vlogfile_number_ = std::max(vlogfile_number_, number);
+      else if(type == kVlogFile ) {
+        vlogfile_number_ = std::max(vlogfile_number_, number);
+        // Add vlogfiles into vmanager_;
+        RandomAccessFile* now_file = nullptr;
+        s = options_.env -> NewRandomAccessFile(filenames[i], &now_file);
+        if(!s.ok()) return s;
+        vmanager_->AddVlogFile(vlogfile_number_, now_file);
+      }
     }
   }
   if (!expected.empty()) {
@@ -1178,8 +1189,11 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
     decoded_status &= GetVarint64(&encoded_vptr, &vlogfile_number);
     decoded_status &= GetVarint64(&encoded_vptr, &vlogfile_offset);
     if(!decoded_status) s = Status::Corruption("Can not Decode vptr from Read Bytes.");
-    //TODO: Read From VlogFile.
-    *value = std::to_string(vlogfile_number) + std::to_string(vlogfile_offset);
+    RandomAccessFile* vlog_file = vmanager_->GetVlogFile(vlogfile_number);
+    if(vlog_file == nullptr) return Status::Corruption("Failed to find vlog files.");
+    vlog::VReader vreader = vlog::VReader(vlog_file);
+    std::string tmp_key;
+    vreader.readKV(vlogfile_offset, &tmp_key, value);
   }
   return s;
 }
@@ -1222,12 +1236,26 @@ Status DBImpl::Put(const WriteOptions& o, const Slice& key, const Slice& val) {
   else if(this->options_.kvSepType == kVSepBeforeMem){
     //写VLog
     if(vlogfile_offset_ >= options_.vlog_file_size){
-      //TODO: Need Change File
+      WritableFile* newfile;
+      RandomAccessFile* readfile;
+      Status s;
+      s = options_.env->NewWritableFile(VlogFileName(dbname_, vlogfile_number_ + 1), &newfile);
+      if(!s.ok()) return s;
+      s = options_.env->NewRandomAccessFile(VlogFileName(dbname_, vlogfile_number_ + 1), &readfile);
+      if(!s.ok()) return s;
+      //更新相应的模块
+      delete vlog_;
+      delete vlogfile_;
+      vmanager_->AddVlogFile(vlogfile_number_ + 1, readfile);
+      vlogfile_ = newfile;
+      vlog_ = new vlog::VWriter(vlogfile_);
+      ++vlogfile_number_;
+      vlogfile_offset_ = 0;
     }
     int write_size = 0;
-    string tmp_vrec;
+    std::string tmp_vrec;
     PutLengthPrefixedSlice(&tmp_vrec, key);
-    PutLengthPrefixedSlice(&tmp_vrec, value);
+    PutLengthPrefixedSlice(&tmp_vrec, val);
     vlog_-> AddRecord(Slice(tmp_vrec), write_size);
     //将val替换为vptr.
     char buf[20];
