@@ -1,7 +1,7 @@
 // author： ZeitHaum
 
-#ifndef STORAGE_LEVELDB_DB_LOG_READER_H_
-#define STORAGE_LEVELDB_DB_LOG_READER_H_
+#ifndef STORAGE_LEVELDB_DB_VLOG_READER_H_
+#define STORAGE_LEVELDB_DB_VLOG_READER_H_
 
 #include <cstdint>
 #include "leveldb/slice.h"

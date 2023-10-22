@@ -29,7 +29,7 @@ using leveldb::DB;
   static bool
 leveldb_get(DB * db, string &key, string &value)
 {
-  assert(lldb);
+  // assert(lldb);
   ReadOptions ropt;
   Status s = db->Get(ropt, key, &value);
   assert(s.ok());

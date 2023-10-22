@@ -402,7 +402,7 @@ Status DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
   }
 
   //Assign the offset
-  vlogfile_offset_ == getFileSize(VlogFileName(dbname_, vlogfile_number_).c_str());
+  vlogfile_offset_ = getFileSize(VlogFileName(dbname_, vlogfile_number_).c_str());
   return Status::OK();
 }
 
@@ -1193,7 +1193,7 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
     if(vlog_file == nullptr) return Status::Corruption("Failed to find vlog files.");
     vlog::VReader vreader = vlog::VReader(vlog_file);
     std::string tmp_key;
-    vreader.readKV(vlogfile_offset, &tmp_key, value);
+    vreader.ReadKV(vlogfile_offset, &tmp_key, value);
   }
   return s;
 }
@@ -1560,16 +1560,6 @@ void DBImpl::GetApproximateSizes(const Range* range, int n, uint64_t* sizes) {
   v->Unref();
 }
 
- size_t DBImpl::getFileSize(const char* filename){
-	if (filename == NULL) {
-		return 0;
-	}
-	struct stat statbuf;
-	stat(filename, &statbuf);
-	size_t filesize = statbuf.st_size;
-	return filesize;
- }
-
 // Default implementations of convenience methods that subclasses of DB
 // can call if they wish
 Status DB::Put(const WriteOptions& opt, const Slice& key, const Slice& value) {
@@ -1599,10 +1589,14 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
     // Create new log and a corresponding memtable.
     uint64_t new_log_number = impl->versions_->NewFileNumber();
     WritableFile* lfile, *vfile;
+    RandomAccessFile* rfile;
+    SequentialFile* sfile;
     s = options.env->NewWritableFile(LogFileName(dbname, new_log_number),
                                      &lfile);
     if(s.ok()) s = options.env -> NewWritableFile(VlogFileName(dbname, impl->vlogfile_number_), 
                                      &vfile);
+    if(s.ok()) s = options.env -> NewSequentialFile(VlogFileName(dbname, impl->vlogfile_number_), 
+                                     &sfile);
     if (s.ok()) {
       edit.SetLogNumber(new_log_number);
       impl->logfile_ = lfile;
@@ -1610,6 +1604,7 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
       impl->logfile_number_ = new_log_number;
       impl->log_ = new log::Writer(lfile);
       impl->vlog_ = new vlog::VWriter(vfile);
+      impl->vmanager_->AddVlogFile(impl->vlogfile_number_, rfile);
       impl->mem_ = new MemTable(impl->internal_comparator_);
       impl->mem_->Ref();
     }

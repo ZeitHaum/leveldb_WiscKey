@@ -213,9 +213,6 @@ class DBImpl : public DB {
   Status bg_error_ GUARDED_BY(mutex_);
 
   CompactionStats stats_[config::kNumLevels] GUARDED_BY(mutex_);
-
-  //Get the filesize of a file
-  size_t getFileSize(const char* filename);
 };
 
 // Sanitize db options.  The caller should delete result.info_log if
