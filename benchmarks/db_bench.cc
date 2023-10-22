@@ -816,6 +816,7 @@ class Benchmark {
     options.reuse_logs = FLAGS_reuse_logs;
     options.compression =
         FLAGS_compression ? kSnappyCompression : kNoCompression;
+    options.kvSepType = noKVSep;
     Status s = DB::Open(options, FLAGS_db, &db_);
     if (!s.ok()) {
       std::fprintf(stderr, "open error: %s\n", s.ToString().c_str());
