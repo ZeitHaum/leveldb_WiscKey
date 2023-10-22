@@ -149,6 +149,7 @@ DBImpl::DBImpl(const Options& raw_options, const std::string& dbname)
       log_(nullptr),
       vlog_(nullptr),
       vmanager_(new vlog::VlogManager()),
+      vconverter_(new vlog::VlogConverter()),
       vlogfile_(nullptr),
       vlogfile_number_(0),
       vlogfile_offset_(0),
@@ -181,6 +182,7 @@ DBImpl::~DBImpl() {
   delete vlog_;
   delete vlogfile_;
   delete vmanager_;
+  delete vconverter_;
 
   delete table_cache_;
 
@@ -1187,10 +1189,8 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
     Slice encoded_vptr = Slice(*value);
     uint64_t vlogfile_number;
     uint64_t vlogfile_offset;
-    bool decoded_status = true;
-    decoded_status &= GetVarint64(&encoded_vptr, &vlogfile_number);
-    decoded_status &= GetVarint64(&encoded_vptr, &vlogfile_offset);
-    if(!decoded_status) s = Status::Corruption("Can not Decode vptr from Read Bytes.");
+    s = vconverter_->DecodeVptr(&vlogfile_number, &vlogfile_offset, &encoded_vptr);
+    if(!s.ok()) return s;
     SequentialFile* vlog_file = vmanager_->GetVlogFile(vlogfile_number);
     if(vlog_file == nullptr) return Status::Corruption("Failed to find vlog files.");
     vlog::VReader vreader = vlog::VReader(vlog_file);
@@ -1264,17 +1264,8 @@ Status DBImpl::Put(const WriteOptions& o, const Slice& key, const Slice& val) {
     if(!s.ok()) return s;
     //将val替换为vptr.
     char buf[20];
-    char* vfileno_end = EncodeVarint64(buf, vlogfile_number_);
-    char* vfileoff_end = EncodeVarint64(vfileno_end, vlogfile_offset_);
-    #ifdef DEBUG
-    std::cout<<"Insert value size:"<<val.size()<<"Current vlogfile_offset_:"<<vlogfile_offset_<<'\n';
-    for(int i = 0; i< vfileoff_end - buf; i++){
-      printf("%x, ", buf[i]);
-    }
-    printf("\n");
-    #endif
+    Slice vptr = vconverter_->GetVptr(vlogfile_number_, vlogfile_offset_, buf);
     vlogfile_offset_ += write_size;
-    Slice vptr = Slice(buf, vfileoff_end - buf);
     return DB::Put(o, key, vptr);
   }
   return Status::Corruption("Invalid kvSepType.");

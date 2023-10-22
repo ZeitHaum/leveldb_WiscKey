@@ -16,6 +16,7 @@
 #include "db/vlog_reader.h"
 #include "db/vlog_manager.h"
 #include "db/snapshot.h"
+#include "db/vlog_converter.h"
 #include "leveldb/db.h"
 #include "leveldb/env.h"
 #include "port/port.h"
@@ -190,6 +191,7 @@ class DBImpl : public DB {
   WritableFile* vlogfile_; //写vlog_file的文件类
   vlog::VWriter* vlog_;
   vlog::VlogManager* vmanager_;
+  vlog::VlogConverter* vconverter_;
   uint32_t seed_ GUARDED_BY(mutex_);  // For sampling.
 
   // Queue of writers.
@@ -214,7 +216,7 @@ class DBImpl : public DB {
 
   CompactionStats stats_[config::kNumLevels] GUARDED_BY(mutex_);
 
-  
+
 };
 
 // Sanitize db options.  The caller should delete result.info_log if

@@ -25,6 +25,8 @@ int main(){
         if(status.ok()) std::cout<< "Find value of \'key2\' From db:" << val << "\n";
         status = db -> Get(leveldb::ReadOptions(), "key" + std::to_string(9957), &val);
         if(status.ok()) std::cout<< "Find value of \'key9957\' From db:" << val << "\n";
+        status = db -> Get(leveldb::ReadOptions(), "key" + std::to_string(117), &val);
+        if(status.ok()) std::cout<< "Find value of \'key117\' From db:" << val << "\n";
     }
-    // delete db;
+    delete db;
 }
