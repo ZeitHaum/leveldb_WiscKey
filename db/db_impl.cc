@@ -34,7 +34,6 @@
 #include "util/coding.h"
 #include "util/logging.h"
 #include "util/mutexlock.h"
-#include <sys/stat.h>
 
 
 // #define DEBUG
@@ -182,6 +181,7 @@ DBImpl::~DBImpl() {
   delete vlog_;
   delete vlogfile_;
   delete vmanager_;
+
   delete table_cache_;
 
   if (owns_info_log_) {
@@ -369,7 +369,7 @@ Status DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
         vlogfile_number_ = std::max(vlogfile_number_, number);
         // Add vlogfiles into vmanager_;
         SequentialFile* now_file = nullptr;
-        s = options_.env -> NewSequentialFile(filenames[i], &now_file);
+        s = options_.env -> NewSequentialFile(VlogFileName(dbname_, vlogfile_number_), &now_file);
         if(!s.ok()) return s;
         vmanager_->AddVlogFile(vlogfile_number_, now_file);
       }

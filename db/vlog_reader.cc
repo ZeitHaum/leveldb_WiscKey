@@ -29,7 +29,7 @@ namespace vlog{
             s = file_-> Read(rec_size, &rec_slice, c_rec);
             if(!s.ok()) return s;
             rec = std::string(c_rec, rec_size);
-            *record = rec;
+            *record = std::move(std::string(rec));
         }
         return s;
     }
