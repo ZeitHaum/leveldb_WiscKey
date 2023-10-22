@@ -7,7 +7,8 @@
 #include "util/coding.h"
 namespace leveldb{
 namespace vlog{
-    VWriter::VWriter(WritableFile* vlogfile):vlogfile_(vlogfile){}
+    VWriter::VWriter(WritableFile* vlogfile)
+        :vlogfile_(vlogfile){}
     VWriter::~VWriter() = default;
     Status VWriter::AddRecord(const Slice& slice, int& write_size){
         //append slice length.

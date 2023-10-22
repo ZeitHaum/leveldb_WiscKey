@@ -54,6 +54,10 @@ class DBImpl : public DB {
   void CompactRange(const Slice* begin, const Slice* end) override;
 
   // Extra methods (for testing) that are not in the public DB interface
+  //to get the KVSepType
+  KVSepType GetKVSepType();
+
+  Status FlushVlog();
 
   // Compact any files in the named level that overlap [*begin,*end]
   void TEST_CompactRange(int level, const Slice* begin, const Slice* end);
@@ -216,7 +220,10 @@ class DBImpl : public DB {
 
   CompactionStats stats_[config::kNumLevels] GUARDED_BY(mutex_);
 
+  public:
+  Status WriteValueIntoVlog(const Slice& key, const Slice& val, char* buf, Slice& vptr);
 
+  Status ReadValueFromVlog(std::string* key, std::string* val, std::string* vptr);
 };
 
 // Sanitize db options.  The caller should delete result.info_log if

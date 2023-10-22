@@ -277,7 +277,8 @@ void leveldb_destroy_db(const leveldb_options_t* options, const char* name,
 
 void leveldb_repair_db(const leveldb_options_t* options, const char* name,
                        char** errptr) {
-  SaveError(errptr, RepairDB(name, options->rep));
+  //TODO: Consider later.
+  // SaveError(errptr, RepairDB(name, options->rep, nullptr));
 }
 
 void leveldb_iter_destroy(leveldb_iterator_t* iter) {

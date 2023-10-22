@@ -383,7 +383,14 @@ Status DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
                   static_cast<int>(expected.size()));
     return Status::Corruption(buf, TableFileName(dbname_, *(expected.begin())));
   }
+  // Make the vlog_ file Now
+  WritableFile* vfile;
+  if(s.ok()) s = options_.env -> NewWritableFile(VlogFileName(dbname_, vlogfile_number_), 
+                                     &vfile);
+  vlogfile_ = vfile;
+  vlog_ = new vlog::VWriter(vfile);
 
+  if(!s.ok()) return s;
   // Recover in the order in which the logs were generated
   std::sort(logs.begin(), logs.end());
   for (size_t i = 0; i < logs.size(); i++) {
@@ -544,7 +551,7 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   Status s;
   {
     mutex_.Unlock();
-    s = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta);
+    s = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta, this);
     mutex_.Lock();
   }
 
@@ -1174,6 +1181,12 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
     } else {
       s = current->Get(options, lkey, value, &stats);
       have_stat_update = true;
+      //if KVSeq, Need Decode
+      if(options_.kvSepType == kVSepBeforeSSD){
+        std::string tmp_key;
+        Status s = ReadValueFromVlog(&tmp_key, value, value);
+        if(!s.ok()) return s;
+      }
     }
     mutex_.Lock();
   }
@@ -1186,16 +1199,9 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
   current->Unref();
   //Decode vptr if Need Kvsep
   if(options_.kvSepType == kVSepBeforeMem){
-    Slice encoded_vptr = Slice(*value);
-    uint64_t vlogfile_number;
-    uint64_t vlogfile_offset;
-    s = vconverter_->DecodeVptr(&vlogfile_number, &vlogfile_offset, &encoded_vptr);
-    if(!s.ok()) return s;
-    SequentialFile* vlog_file = vmanager_->GetVlogFile(vlogfile_number);
-    if(vlog_file == nullptr) return Status::Corruption("Failed to find vlog files.");
-    vlog::VReader vreader = vlog::VReader(vlog_file);
     std::string tmp_key;
-    vreader.ReadKV(vlogfile_offset, &tmp_key, value);
+    Status s = ReadValueFromVlog(&tmp_key, value, value);
+    if(!s.ok()) return s;
   }
   return s;
 }
@@ -1236,36 +1242,12 @@ Status DBImpl::Put(const WriteOptions& o, const Slice& key, const Slice& val) {
     return DB::Put(o, key, val);
   }
   else if(this->options_.kvSepType == kVSepBeforeMem){
-    //写VLog
-    Status s;
-    if(vlogfile_offset_ >= options_.vlog_file_size){
-      WritableFile* newfile;
-      SequentialFile* readfile;
-      s = options_.env->NewWritableFile(VlogFileName(dbname_, vlogfile_number_ + 1), &newfile);
-      if(!s.ok()) return s;
-      s = options_.env->NewSequentialFile(VlogFileName(dbname_, vlogfile_number_ + 1), &readfile);
-      if(!s.ok()) return s;
-      //更新相应的模块
-      delete vlog_;
-      delete vlogfile_;
-      vmanager_->AddVlogFile(vlogfile_number_ + 1, readfile);
-      vlogfile_ = newfile;
-      vlog_ = new vlog::VWriter(vlogfile_);
-      ++vlogfile_number_;
-      vlogfile_offset_ = 0;
-    }
-    int write_size = 0;
-    std::string tmp_vrec;
-    PutLengthPrefixedSlice(&tmp_vrec, key);
-    PutLengthPrefixedSlice(&tmp_vrec, val);
-    s = vlog_-> AddRecord(Slice(tmp_vrec), write_size);
+    char buf[20];
+    Slice vptr;
+    Status s = WriteValueIntoVlog(key, val, buf, vptr);
     if(!s.ok()) return s;
     s = vlog_-> Flush();
     if(!s.ok()) return s;
-    //将val替换为vptr.
-    char buf[20];
-    Slice vptr = vconverter_->GetVptr(vlogfile_number_, vlogfile_offset_, buf);
-    vlogfile_offset_ += write_size;
     return DB::Put(o, key, vptr);
   }
   return Status::Corruption("Invalid kvSepType.");
@@ -1556,6 +1538,59 @@ void DBImpl::GetApproximateSizes(const Range* range, int n, uint64_t* sizes) {
   v->Unref();
 }
 
+Status DBImpl::WriteValueIntoVlog(const Slice& key, const Slice& val, char* buf, Slice& vptr){
+  //写VLog
+  Status s;
+  if(vlogfile_offset_ >= options_.vlog_file_size){
+    WritableFile* newfile;
+    SequentialFile* readfile;
+    s = options_.env->NewWritableFile(VlogFileName(dbname_, vlogfile_number_ + 1), &newfile);
+    if(!s.ok()) return s;
+    s = options_.env->NewSequentialFile(VlogFileName(dbname_, vlogfile_number_ + 1), &readfile);
+    if(!s.ok()) return s;
+    //更新相应的模块
+    delete vlog_;
+    delete vlogfile_;
+    vmanager_->AddVlogFile(vlogfile_number_ + 1, readfile);
+    vlogfile_ = newfile;
+    vlog_ = new vlog::VWriter(vlogfile_);
+    ++vlogfile_number_;
+    vlogfile_offset_ = 0;
+  }
+  int write_size = 0;
+  std::string tmp_vrec;
+  PutLengthPrefixedSlice(&tmp_vrec, key);
+  PutLengthPrefixedSlice(&tmp_vrec, val);
+  s = vlog_-> AddRecord(Slice(tmp_vrec), write_size);
+  if(!s.ok()) return s;
+  //将val替换为vptr.
+  vptr = vconverter_->GetVptr(vlogfile_number_, vlogfile_offset_, buf);
+  vlogfile_offset_ += write_size;
+  return s;
+}
+
+Status DBImpl::ReadValueFromVlog(std::string* key, std::string* val, std::string* vptr){
+  Status s;
+  Slice encoded_vptr = Slice(*vptr);
+  uint64_t vlogfile_number;
+  uint64_t vlogfile_offset;
+  s = vconverter_->DecodeVptr(&vlogfile_number, &vlogfile_offset, &encoded_vptr);
+  if(!s.ok()) return s;
+  SequentialFile* vlog_file = vmanager_->GetVlogFile(vlogfile_number);
+  if(vlog_file == nullptr) return Status::Corruption("Failed to find vlog files.");
+  vlog::VReader vreader = vlog::VReader(vlog_file);
+  vreader.ReadKV(vlogfile_offset, key, val);
+  return s;
+}
+
+KVSepType DBImpl::GetKVSepType(){
+  return options_.kvSepType;
+}
+
+Status DBImpl::FlushVlog(){
+  return vlog_ ->Flush();
+}
+
 // Default implementations of convenience methods that subclasses of DB
 // can call if they wish
 Status DB::Put(const WriteOptions& opt, const Slice& key, const Slice& value) {
@@ -1584,21 +1619,17 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
   if (s.ok() && impl->mem_ == nullptr) {
     // Create new log and a corresponding memtable.
     uint64_t new_log_number = impl->versions_->NewFileNumber();
-    WritableFile* lfile, *vfile;
+    WritableFile* lfile;
     SequentialFile* sfile;
     s = options.env->NewWritableFile(LogFileName(dbname, new_log_number),
                                      &lfile);
-    if(s.ok()) s = options.env -> NewWritableFile(VlogFileName(dbname, impl->vlogfile_number_), 
-                                     &vfile);
     if(s.ok()) s = options.env -> NewSequentialFile(VlogFileName(dbname, impl->vlogfile_number_), 
                                      &sfile);
     if (s.ok()) {
       edit.SetLogNumber(new_log_number);
       impl->logfile_ = lfile;
-      impl->vlogfile_ = vfile;
       impl->logfile_number_ = new_log_number;
       impl->log_ = new log::Writer(lfile);
-      impl->vlog_ = new vlog::VWriter(vfile);
       impl->vmanager_->AddVlogFile(impl->vlogfile_number_, sfile);
       impl->mem_ = new MemTable(impl->internal_comparator_);
       impl->mem_->Ref();

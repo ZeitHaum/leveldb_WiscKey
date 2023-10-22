@@ -44,7 +44,7 @@ namespace {
 
 class Repairer {
  public:
-  Repairer(const std::string& dbname, const Options& options)
+  Repairer(const std::string& dbname, const Options& options, DBImpl* impl)
       : dbname_(dbname),
         env_(options.env),
         icmp_(options.comparator),
@@ -52,6 +52,7 @@ class Repairer {
         options_(SanitizeOptions(dbname, &icmp_, &ipolicy_, options)),
         owns_info_log_(options_.info_log != options.info_log),
         owns_cache_(options_.block_cache != options.block_cache),
+        impl_(impl),
         next_file_number_(1) {
     // TableCache can be small since we expect each table to be opened once.
     table_cache_ = new TableCache(dbname_, options_, 10);
@@ -203,7 +204,7 @@ class Repairer {
     FileMetaData meta;
     meta.number = next_file_number_++;
     Iterator* iter = mem->NewIterator();
-    status = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta);
+    status = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta, impl_);
     delete iter;
     mem->Unref();
     mem = nullptr;
@@ -432,6 +433,7 @@ class Repairer {
   const Options options_;
   bool owns_info_log_;
   bool owns_cache_;
+  DBImpl* impl_;
   TableCache* table_cache_;
   VersionEdit edit_;
 
@@ -443,8 +445,8 @@ class Repairer {
 };
 }  // namespace
 
-Status RepairDB(const std::string& dbname, const Options& options) {
-  Repairer repairer(dbname, options);
+Status RepairDB(const std::string& dbname, const Options& options, DBImpl* impl) {
+  Repairer repairer(dbname, options, impl);
   return repairer.Run();
 }
 

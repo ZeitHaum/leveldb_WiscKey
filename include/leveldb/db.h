@@ -160,7 +160,7 @@ LEVELDB_EXPORT Status DestroyDB(const std::string& name,
 // Some data may be lost, so be careful when calling this function
 // on a database that contains important information.
 LEVELDB_EXPORT Status RepairDB(const std::string& dbname,
-                               const Options& options);
+                               const Options& options, DB* db_);
 
 }  // namespace leveldb
 

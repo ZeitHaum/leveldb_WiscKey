@@ -8,6 +8,7 @@
 #include "db/filename.h"
 #include "db/table_cache.h"
 #include "db/version_edit.h"
+#include "db/db_impl.h"
 #include "leveldb/db.h"
 #include "leveldb/env.h"
 #include "leveldb/iterator.h"
@@ -15,7 +16,7 @@
 namespace leveldb {
 
 Status BuildTable(const std::string& dbname, Env* env, const Options& options,
-                  TableCache* table_cache, Iterator* iter, FileMetaData* meta) {
+                  TableCache* table_cache, Iterator* iter, FileMetaData* meta, DBImpl* impl) {
   Status s;
   meta->file_size = 0;
   iter->SeekToFirst();
@@ -33,9 +34,20 @@ Status BuildTable(const std::string& dbname, Env* env, const Options& options,
     Slice key;
     for (; iter->Valid(); iter->Next()) {
       key = iter->key();
-      // builder->Add(key, iter->value());
-      builder->Add(key, "val1");
+      if(impl->GetKVSepType() == kVSepBeforeSSD && impl!=nullptr){
+          char buf[20];
+          Slice vptr;
+          Slice val = iter->value();
+          Status s = impl->WriteValueIntoVlog(key, val, buf, vptr);
+          if(!s.ok()) return s;
+          builder->Add(key, vptr);
+      }
+      else builder->Add(key, iter->value());
     }
+    if(impl->GetKVSepType() == kVSepBeforeSSD  && impl!=nullptr){
+      s = impl->FlushVlog();
+      if(!s.ok()) return s;
+    } 
     if (!key.empty()) {
       meta->largest.DecodeFrom(key);
     }
