@@ -17,9 +17,11 @@ namespace vlog{
         write_size += end_byte - buf;
         Status s = vlogfile_->Append(Slice(buf, end_byte - buf));
         //append slice
-        if(s.ok()) vlogfile_->Append(slice);
-        // Don't flush for performance.
+        if(s.ok()) s = vlogfile_->Append(slice);
         return s;
+    }
+    Status VWriter::Flush(){
+        return vlogfile_->Flush();
     }
 }// namespace vlog
 }

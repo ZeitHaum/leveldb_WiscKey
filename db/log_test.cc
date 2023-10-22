@@ -205,6 +205,10 @@ class LogTest : public testing::Test {
       return Status::OK();
     }
 
+    Status SkipFromHead(uint64_t n){
+      return Status::NotSupported("SkipFromHead");
+    }
+
     Slice contents_;
     bool force_error_;
     bool returned_partial_;

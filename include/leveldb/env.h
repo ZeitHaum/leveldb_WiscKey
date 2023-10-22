@@ -246,6 +246,9 @@ class LEVELDB_EXPORT SequentialFile {
   //
   // REQUIRES: External synchronization
   virtual Status Skip(uint64_t n) = 0;
+
+  // To Support Randomly Access, TODO: Fix RandomAccessFile Bugs.
+  virtual Status SkipFromHead(uint64_t n) = 0;
 };
 
 // A file abstraction for randomly reading the contents of a file.

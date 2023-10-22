@@ -163,6 +163,13 @@ class PosixSequentialFile final : public SequentialFile {
     return Status::OK();
   }
 
+  Status SkipFromHead(uint64_t n) {
+   if (::lseek(fd_, n, SEEK_SET) ==  static_cast<off_t>(-1)) {//移动到相对文件头部偏移n的位置
+      return PosixError(filename_, errno);
+    }
+    return Status::OK();
+  }
+
  private:
   const int fd_;
   const std::string filename_;

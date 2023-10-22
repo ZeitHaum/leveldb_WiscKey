@@ -177,6 +177,14 @@ class SequentialFileImpl : public SequentialFile {
     return Status::OK();
   }
 
+  Status SkipFromHead(uint64_t n) override{
+    if (pos_ > file_->Size()) {
+      return Status::IOError("pos_ > file_->Size()");
+    }
+    pos_ = n;
+    return Status::OK();
+  }
+
  private:
   FileState* file_;
   uint64_t pos_;

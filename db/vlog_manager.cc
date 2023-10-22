@@ -3,7 +3,7 @@
 
 namespace leveldb{
 namespace vlog{
-    void VlogManager::AddVlogFile(uint64_t vlogfile_number, RandomAccessFile* file){
+    void VlogManager::AddVlogFile(uint64_t vlogfile_number, SequentialFile* file){
         if(vlog_table_.find(vlogfile_number) == vlog_table_.end()){
             vlog_table_[vlogfile_number] = file;
         }
@@ -11,7 +11,7 @@ namespace vlog{
             //Do Nothing
         }
     }
-    RandomAccessFile* VlogManager::GetVlogFile(uint64_t vlogfile_number){
+    SequentialFile* VlogManager::GetVlogFile(uint64_t vlogfile_number){
         auto it = vlog_table_.find(vlogfile_number);
         if(it != vlog_table_.end()){
             return it->second;
