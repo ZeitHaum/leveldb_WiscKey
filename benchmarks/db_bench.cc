@@ -74,7 +74,7 @@ static int FLAGS_reads = -1;
 static int FLAGS_threads = 1;
 
 // Size of each value
-static int FLAGS_value_size = 2048;
+static int FLAGS_value_size = 4096;
 
 // Arrange to generate values that shrink to this fraction of
 // their original size after compression
@@ -210,7 +210,7 @@ class KeyBuffer {
   Slice slice() const { return Slice(buffer_, FLAGS_key_prefix + 16); }
 
  private:
-  char buffer_[2048];
+  char buffer_[4096];
 };
 
 #if defined(__linux)
@@ -816,7 +816,7 @@ class Benchmark {
     options.reuse_logs = FLAGS_reuse_logs;
     options.compression =
         FLAGS_compression ? kSnappyCompression : kNoCompression;
-    options.kvSepType = kVSepBeforeMem;
+    options.kvSepType = noKVSep;
     Status s = DB::Open(options, FLAGS_db, &db_);
     if (!s.ok()) {
       std::fprintf(stderr, "open error: %s\n", s.ToString().c_str());
