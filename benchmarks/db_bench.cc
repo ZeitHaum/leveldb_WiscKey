@@ -74,7 +74,7 @@ static int FLAGS_reads = -1;
 static int FLAGS_threads = 1;
 
 // Size of each value
-static int FLAGS_value_size = 4096;
+static int FLAGS_value_size = 3072;
 
 // Arrange to generate values that shrink to this fraction of
 // their original size after compression
@@ -816,7 +816,7 @@ class Benchmark {
     options.reuse_logs = FLAGS_reuse_logs;
     options.compression =
         FLAGS_compression ? kSnappyCompression : kNoCompression;
-    options.kvSepType = noKVSep;
+    options.kvSepType =  kVSepBeforeSSD;
     Status s = DB::Open(options, FLAGS_db, &db_);
     if (!s.ok()) {
       std::fprintf(stderr, "open error: %s\n", s.ToString().c_str());
