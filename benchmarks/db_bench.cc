@@ -74,7 +74,7 @@ static int FLAGS_reads = -1;
 static int FLAGS_threads = 1;
 
 // Size of each value
-static int FLAGS_value_size = 128;
+static int FLAGS_value_size = 2048;
 
 // Arrange to generate values that shrink to this fraction of
 // their original size after compression
@@ -210,7 +210,7 @@ class KeyBuffer {
   Slice slice() const { return Slice(buffer_, FLAGS_key_prefix + 16); }
 
  private:
-  char buffer_[1024];
+  char buffer_[2048];
 };
 
 #if defined(__linux)
